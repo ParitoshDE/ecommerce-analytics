@@ -1,12 +1,15 @@
 -- fct_orders.sql
 -- Order item fact table — one row per order item with surrogate key.
--- SORTKEY(order_purchase_date): efficient time-range queries (partition equivalent).
--- DISTKEY(customer_state): eliminates cross-node shuffles when filtering by state.
+-- Indexes on order_purchase_date (time-range queries) and customer_state
+-- (geography filters) — the PostgreSQL equivalents of partitioning and clustering.
 
 {{ config(
     materialized='table',
-    sort=['order_purchase_date'],
-    dist='customer_state'
+    indexes=[
+        {'columns': ['order_purchase_date'], 'type': 'btree'},
+        {'columns': ['customer_state'],      'type': 'btree'},
+        {'columns': ['product_category_name_english'], 'type': 'btree'}
+    ]
 ) }}
 
 with orders as (

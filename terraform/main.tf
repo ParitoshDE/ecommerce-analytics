@@ -16,20 +16,6 @@ provider "aws" {
 }
 
 # ---------------------------------------------------------------
-# Data sources — default VPC + subnets
-# ---------------------------------------------------------------
-data "aws_vpc" "default" {
-  default = true
-}
-
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
-
-# ---------------------------------------------------------------
 # S3 Bucket — Data Lake
 # ---------------------------------------------------------------
 resource "aws_s3_bucket" "data_lake" {
@@ -49,6 +35,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "data_lake" {
   rule {
     id     = "expire-old-objects"
     status = "Enabled"
+    filter {}
     expiration {
       days = 90
     }
@@ -56,40 +43,39 @@ resource "aws_s3_bucket_lifecycle_configuration" "data_lake" {
 }
 
 # ---------------------------------------------------------------
-# IAM Role — Redshift Serverless reads S3 via COPY command
+# IAM Role — used by load script to access S3
 # ---------------------------------------------------------------
-resource "aws_iam_role" "redshift_s3_role" {
-  name = "olist-redshift-s3-role"
+resource "aws_iam_role" "rds_s3_role" {
+  name = "olist-rds-s3-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Service = "redshift.amazonaws.com" }
+      Principal = { Service = "rds.amazonaws.com" }
       Action    = "sts:AssumeRole"
     }]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "redshift_s3" {
-  role       = aws_iam_role.redshift_s3_role.name
+resource "aws_iam_role_policy_attachment" "rds_s3" {
+  role       = aws_iam_role.rds_s3_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
 }
 
 # ---------------------------------------------------------------
-# Security Group — allow port 5439 for Redshift Serverless
+# Security Group — allow port 5432 for RDS PostgreSQL
 # ---------------------------------------------------------------
-resource "aws_security_group" "redshift_sg" {
-  name        = "olist-redshift-sg"
-  description = "Allow Redshift Serverless access on port 5439"
-  vpc_id      = data.aws_vpc.default.id
+resource "aws_security_group" "rds_sg" {
+  name        = "olist-rds-sg"
+  description = "Allow PostgreSQL access on port 5432"
 
   ingress {
-    from_port   = 5439
-    to_port     = 5439
+    from_port   = 5432
+    to_port     = 5432
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Redshift JDBC/psycopg2 access"
+    description = "PostgreSQL access"
   }
 
   egress {
@@ -101,24 +87,19 @@ resource "aws_security_group" "redshift_sg" {
 }
 
 # ---------------------------------------------------------------
-# Redshift Serverless — Namespace (database + credentials)
+# RDS PostgreSQL — db.t3.micro (free tier eligible)
 # ---------------------------------------------------------------
-resource "aws_redshiftserverless_namespace" "olist" {
-  namespace_name      = var.redshift_namespace_name
-  db_name             = var.redshift_db_name
-  admin_username      = var.redshift_admin_username
-  admin_user_password = var.redshift_admin_password
-  iam_roles           = [aws_iam_role.redshift_s3_role.arn]
-}
-
-# ---------------------------------------------------------------
-# Redshift Serverless — Workgroup (compute + networking)
-# ---------------------------------------------------------------
-resource "aws_redshiftserverless_workgroup" "olist" {
-  namespace_name      = aws_redshiftserverless_namespace.olist.namespace_name
-  workgroup_name      = var.redshift_workgroup_name
-  base_capacity       = 8
-  publicly_accessible = true
-  subnet_ids          = data.aws_subnets.default.ids
-  security_group_ids  = [aws_security_group.redshift_sg.id]
+resource "aws_db_instance" "olist" {
+  identifier             = "olist-postgres"
+  engine                 = "postgres"
+  engine_version         = "16"
+  instance_class         = "db.t3.micro"
+  allocated_storage      = 20
+  db_name                = var.pg_db_name
+  username               = var.pg_admin_username
+  password               = var.pg_admin_password
+  publicly_accessible    = true
+  skip_final_snapshot    = true
+  deletion_protection    = false
+  vpc_security_group_ids = [aws_security_group.rds_sg.id]
 }

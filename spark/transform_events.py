@@ -237,6 +237,97 @@ def transform(spark: SparkSession, raw_prefix: str, output_path: str) -> None:
     print("[spark] Transform complete.")
 
 
+def transform_pandas(raw_prefix: str, output_path: str) -> None:
+    """Pure pandas/pyarrow fallback — same logic and output schema as the Spark transform."""
+    import pandas as pd
+
+    raw = Path(raw_prefix)
+    out_dir = Path(output_path)
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    orders    = pd.read_csv(raw / "olist_orders_dataset.csv")
+    items     = pd.read_csv(raw / "olist_order_items_dataset.csv")
+    products  = pd.read_csv(raw / "olist_products_dataset.csv")
+    customers = pd.read_csv(raw / "olist_customers_dataset.csv")
+    sellers   = pd.read_csv(raw / "olist_sellers_dataset.csv")
+    payments  = pd.read_csv(raw / "olist_order_payments_dataset.csv")
+    reviews   = pd.read_csv(raw / "olist_order_reviews_dataset.csv")
+    cat_trans = pd.read_csv(raw / "product_category_name_translation.csv")
+
+    # dominant payment per order
+    pay_agg = (
+        payments.sort_values("payment_value", ascending=False)
+        .drop_duplicates(subset="order_id")
+        [["order_id", "payment_type", "payment_value"]]
+    )
+
+    # average review per order
+    rev_agg = reviews.groupby("order_id")["review_score"].mean().reset_index()
+
+    products_en = products.merge(cat_trans, on="product_category_name", how="left")[
+        ["product_id", "product_category_name", "product_category_name_english"]
+    ]
+
+    df = (
+        orders
+        .merge(items, on="order_id", how="left")
+        .merge(products_en, on="product_id", how="left")
+        .merge(customers[["customer_id", "customer_unique_id", "customer_city", "customer_state"]], on="customer_id", how="left")
+        .merge(sellers[["seller_id", "seller_city", "seller_state"]], on="seller_id", how="left")
+        .merge(pay_agg, on="order_id", how="left")
+        .merge(rev_agg, on="order_id", how="left")
+    )
+
+    for col in ["order_purchase_timestamp", "order_delivered_customer_date", "order_estimated_delivery_date"]:
+        df[col] = pd.to_datetime(df[col], errors="coerce")
+
+    df["order_purchase_date"]  = df["order_purchase_timestamp"].dt.date
+    df["order_purchase_year"]  = df["order_purchase_timestamp"].dt.year
+    df["order_purchase_month"] = df["order_purchase_timestamp"].dt.month
+
+    df["delivery_days"] = (
+        (df["order_delivered_customer_date"] - df["order_purchase_timestamp"])
+        .dt.total_seconds() / 86400.0
+    )
+    df["estimated_delivery_days"] = (
+        (df["order_estimated_delivery_date"] - df["order_purchase_timestamp"])
+        .dt.total_seconds() / 86400.0
+    )
+    df["is_on_time"] = (
+        df["order_delivered_customer_date"].notna()
+        & (df["order_delivered_customer_date"] <= df["order_estimated_delivery_date"])
+    )
+
+    df["price"]            = pd.to_numeric(df["price"], errors="coerce")
+    df["freight_value"]    = pd.to_numeric(df["freight_value"], errors="coerce")
+    df["total_item_value"] = df["price"] + df["freight_value"]
+    df["payment_value"]    = pd.to_numeric(df["payment_value"], errors="coerce")
+    df["review_score"]     = pd.to_numeric(df["review_score"], errors="coerce")
+    df["order_item_id"]    = pd.to_numeric(df["order_item_id"], errors="coerce").astype("Int64")
+
+    df = df[df["order_purchase_date"].notna()]
+
+    final_cols = [
+        "order_id", "order_item_id", "order_status",
+        "order_purchase_timestamp", "order_purchase_date",
+        "order_purchase_year", "order_purchase_month",
+        "order_delivered_customer_date", "order_estimated_delivery_date",
+        "delivery_days", "estimated_delivery_days", "is_on_time",
+        "customer_id", "customer_unique_id", "customer_city", "customer_state",
+        "product_id", "product_category_name", "product_category_name_english",
+        "seller_id", "seller_city", "seller_state",
+        "price", "freight_value", "total_item_value",
+        "payment_type", "payment_value", "review_score",
+    ]
+    df = df[final_cols]
+
+    table = pa.Table.from_pandas(df, preserve_index=False)
+    pq.write_table(table, out_dir / "part-00000.parquet", compression="snappy")
+    print(f"[pandas] {len(df):,} rows written to {output_path}")
+
+
 def main() -> None:
     base = Path(__file__).resolve().parent.parent
     raw_prefix  = str(base / "data" / "raw")
@@ -245,9 +336,16 @@ def main() -> None:
     print(f"[spark] Raw prefix : {raw_prefix}")
     print(f"[spark] Output path: {output_path}")
 
-    spark = get_spark()
-    transform(spark, raw_prefix, output_path)
-    spark.stop()
+    try:
+        spark = get_spark()
+        transform(spark, raw_prefix, output_path)
+        spark.stop()
+    except Exception as exc:
+        if "JAVA_GATEWAY_EXITED" in str(exc) or "JAVA_HOME" in str(exc) or "Java" in str(exc):
+            print(f"[spark] Java not available ({type(exc).__name__}). Using pandas fallback.")
+            transform_pandas(raw_prefix, output_path)
+        else:
+            raise
 
 
 if __name__ == "__main__":

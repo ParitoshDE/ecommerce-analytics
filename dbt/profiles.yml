@@ -2,12 +2,12 @@ ecommerce_analytics:
   target: dev
   outputs:
     dev:
-      type: redshift
-      host: "{{ env_var('REDSHIFT_HOST') }}"
-      user: "{{ env_var('REDSHIFT_USER') }}"
-      password: "{{ env_var('REDSHIFT_PASSWORD') }}"
-      port: 5439
-      dbname: "{{ env_var('REDSHIFT_DB', 'olist') }}"
-      schema: "{{ env_var('RS_PROD_SCHEMA', 'olist_prod') }}"
+      type: postgres
+      host: "{{ env_var('PG_HOST') }}"
+      user: "{{ env_var('PG_USER') }}"
+      password: "{{ env_var('PG_PASSWORD') }}"
+      port: 5432
+      dbname: "{{ env_var('PG_DB', 'olist') }}"
+      schema: "{{ env_var('PG_PROD_SCHEMA', 'olist_prod') }}"
       threads: 4
-      ra3_node: true
+      sslmode: require

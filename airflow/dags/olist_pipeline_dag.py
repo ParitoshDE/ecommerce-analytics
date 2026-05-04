@@ -6,7 +6,7 @@ Workflow (7 tasks):
     2. upload_raw_to_s3         — Push raw CSV files to S3 data lake (raw/ prefix)
     3. spark_transform          — PySpark: join all Olist CSVs → denormalized Parquet in data/processed/
     4. upload_processed_to_s3   — Push Parquet files to S3 data lake (processed/ prefix)
-    5. load_to_redshift         — COPY Parquet from S3 into Redshift (DISTKEY + SORTKEY)
+    5. load_to_postgres         — Download Parquet from S3, bulk-load into RDS PostgreSQL
     6. dbt_run                  — Run dbt models: staging → dimensions → facts → aggregations
     7. dbt_test                 — Run dbt data quality tests
 """
@@ -24,13 +24,12 @@ ENV_EXPORT = (
     'export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" && '
     'export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}" && '
     'export S3_BUCKET="${S3_BUCKET}" && '
-    'export REDSHIFT_HOST="${REDSHIFT_HOST}" && '
-    'export REDSHIFT_USER="${REDSHIFT_USER}" && '
-    'export REDSHIFT_PASSWORD="${REDSHIFT_PASSWORD}" && '
-    'export REDSHIFT_DB="${REDSHIFT_DB:-olist}" && '
-    'export RS_RAW_SCHEMA="${RS_RAW_SCHEMA:-olist_raw}" && '
-    'export RS_PROD_SCHEMA="${RS_PROD_SCHEMA:-olist_prod}" && '
-    'export IAM_ROLE_ARN="${IAM_ROLE_ARN}" && '
+    'export PG_HOST="${PG_HOST}" && '
+    'export PG_USER="${PG_USER}" && '
+    'export PG_PASSWORD="${PG_PASSWORD}" && '
+    'export PG_DB="${PG_DB:-olist}" && '
+    'export PG_RAW_SCHEMA="${PG_RAW_SCHEMA:-olist_raw}" && '
+    'export PG_PROD_SCHEMA="${PG_PROD_SCHEMA:-olist_prod}" && '
     'export KAGGLE_API_TOKEN="${KAGGLE_API_TOKEN}" && '
 )
 
@@ -85,11 +84,11 @@ with DAG(
         ),
     )
 
-    load_to_redshift = BashOperator(
-        task_id="load_to_redshift",
+    load_to_postgres = BashOperator(
+        task_id="load_to_postgres",
         bash_command=(
             f"{ENV_EXPORT} cd {PROJECT_DIR} && "
-            "python scripts/load_to_redshift.py"
+            "python scripts/load_to_postgres.py"
         ),
     )
 
@@ -115,7 +114,7 @@ with DAG(
         >> upload_raw_to_s3
         >> spark_transform
         >> upload_processed_to_s3
-        >> load_to_redshift
+        >> load_to_postgres
         >> dbt_run
         >> dbt_test
     )

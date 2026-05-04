@@ -13,17 +13,17 @@ with date_spine as (
 
 select
     date_key,
-    extract(year      from date_key) as year,
-    extract(month     from date_key) as month,
-    extract(day       from date_key) as day,
-    extract(dayofweek from date_key) as day_of_week,
-    format_date('%A',    date_key)   as day_name,
-    format_date('%B',    date_key)   as month_name,
-    format_date('%Y-%m', date_key)   as year_month,
+    extract(year  from date_key)::int          as year,
+    extract(month from date_key)::int          as month,
+    extract(day   from date_key)::int          as day,
+    extract(dow   from date_key)::int          as day_of_week,
+    TO_CHAR(date_key, 'Day')                   as day_name,
+    TO_CHAR(date_key, 'Month')                 as month_name,
+    TO_CHAR(date_key, 'YYYY-MM')               as year_month,
     case
-        when extract(dayofweek from date_key) in (1, 7) then true
+        when extract(dow from date_key) in (0, 6) then true
         else false
-    end                              as is_weekend
+    end                                        as is_weekend
 
 from date_spine
 order by date_key

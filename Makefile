@@ -1,4 +1,4 @@
-.PHONY: download upload upload-processed rs-load dbt-deps dbt-run dbt-test all tf-init tf-apply spark test
+.PHONY: download upload upload-processed pg-load dbt-deps dbt-run dbt-test all tf-init tf-apply spark test
 
 download:
 	python scripts/download_data.py
@@ -12,8 +12,8 @@ upload-processed:
 spark:
 	python spark/transform_events.py
 
-rs-load:
-	python scripts/load_to_redshift.py
+pg-load:
+	python scripts/load_to_postgres.py
 
 dbt-deps:
 	cd dbt && dbt deps --project-dir . --profiles-dir .
@@ -27,7 +27,7 @@ dbt-test:
 test:
 	pytest tests/ -v
 
-all: download upload spark upload-processed rs-load dbt-run dbt-test
+all: download upload spark upload-processed pg-load dbt-run dbt-test
 
 tf-init:
 	cd terraform && terraform init

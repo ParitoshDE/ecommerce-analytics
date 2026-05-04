@@ -9,44 +9,32 @@ variable "s3_bucket_name" {
   type        = string
 }
 
-variable "redshift_namespace_name" {
-  description = "Redshift Serverless namespace name"
-  type        = string
-  default     = "olist-namespace"
-}
-
-variable "redshift_workgroup_name" {
-  description = "Redshift Serverless workgroup name"
-  type        = string
-  default     = "olist-workgroup"
-}
-
-variable "redshift_db_name" {
-  description = "Initial database name in Redshift Serverless"
+variable "pg_db_name" {
+  description = "PostgreSQL database name"
   type        = string
   default     = "olist"
 }
 
-variable "redshift_admin_username" {
-  description = "Redshift admin username"
+variable "pg_admin_username" {
+  description = "PostgreSQL admin username"
   type        = string
   default     = "adminuser"
 }
 
-variable "redshift_admin_password" {
-  description = "Redshift admin password (8-64 chars, mixed case + digit required)"
+variable "pg_admin_password" {
+  description = "PostgreSQL admin password"
   type        = string
   sensitive   = true
 }
 
 variable "raw_schema" {
-  description = "Redshift schema for raw Spark output"
+  description = "PostgreSQL schema for raw Spark output"
   type        = string
   default     = "olist_raw"
 }
 
 variable "prod_schema" {
-  description = "Redshift schema for dbt production models"
+  description = "PostgreSQL schema for dbt production models"
   type        = string
   default     = "olist_prod"
 }

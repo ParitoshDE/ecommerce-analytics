@@ -89,12 +89,12 @@ services:
     volumes:
       - ./dbt:/usr/app/dbt
     environment:
-      - REDSHIFT_HOST=${REDSHIFT_HOST}
-      - REDSHIFT_USER=${REDSHIFT_USER}
-      - REDSHIFT_PASSWORD=${REDSHIFT_PASSWORD}
-      - REDSHIFT_DB=${REDSHIFT_DB:-olist}
-      - RS_PROD_SCHEMA=${RS_PROD_SCHEMA:-olist_prod}
-      - RS_RAW_SCHEMA=${RS_RAW_SCHEMA:-olist_raw}
+      - REDSHIFT_HOST=${PG_HOST}
+      - REDSHIFT_USER=${PG_USER}
+      - REDSHIFT_PASSWORD=${PG_PASSWORD}
+      - REDSHIFT_DB=${PG_DB:-olist}
+      - RS_PROD_SCHEMA=${PG_PROD_SCHEMA:-olist_prod}
+      - RS_RAW_SCHEMA=${PG_RAW_SCHEMA:-olist_raw}
     working_dir: /usr/app/dbt
     entrypoint: ["dbt"]
     command: ["run", "--project-dir", ".", "--profiles-dir", "."]
