@@ -403,7 +403,7 @@ streamlit run dashboard/app.py
 
 ```bash
 docker compose up airflow-init   # one-time DB setup
-docker compose up -d airflow-webserver airflow-scheduler airflow-postgres
+docker compose up -d postgres airflow-webserver airflow-scheduler
 # Open http://localhost:8080 (admin / admin)
 # Trigger: olist_ecommerce_analytics_pipeline
 ```
