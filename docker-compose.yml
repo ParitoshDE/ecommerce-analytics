@@ -16,13 +16,13 @@ x-airflow-common:
     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
     AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
     S3_BUCKET: ${S3_BUCKET}
-    REDSHIFT_HOST: ${REDSHIFT_HOST}
-    REDSHIFT_USER: ${REDSHIFT_USER}
-    REDSHIFT_PASSWORD: ${REDSHIFT_PASSWORD}
-    REDSHIFT_DB: ${REDSHIFT_DB:-olist}
-    RS_RAW_SCHEMA: ${RS_RAW_SCHEMA:-olist_raw}
-    RS_PROD_SCHEMA: ${RS_PROD_SCHEMA:-olist_prod}
-    IAM_ROLE_ARN: ${IAM_ROLE_ARN}
+    PG_HOST: ${PG_HOST}
+    PG_PORT: ${PG_PORT:-5432}
+    PG_USER: ${PG_USER}
+    PG_PASSWORD: ${PG_PASSWORD}
+    PG_DB: ${PG_DB:-olist}
+    PG_RAW_SCHEMA: ${PG_RAW_SCHEMA:-olist_raw}
+    PG_PROD_SCHEMA: ${PG_PROD_SCHEMA:-olist_prod}
     KAGGLE_API_TOKEN: ${KAGGLE_API_TOKEN}
   volumes:
     - ./airflow/dags:/opt/airflow/dags
@@ -89,28 +89,18 @@ services:
     volumes:
       - ./dbt:/usr/app/dbt
     environment:
-      - REDSHIFT_HOST=${PG_HOST}
-      - REDSHIFT_USER=${PG_USER}
-      - REDSHIFT_PASSWORD=${PG_PASSWORD}
-      - REDSHIFT_DB=${PG_DB:-olist}
-      - RS_PROD_SCHEMA=${PG_PROD_SCHEMA:-olist_prod}
-      - RS_RAW_SCHEMA=${PG_RAW_SCHEMA:-olist_raw}
+      - PG_HOST=${PG_HOST}
+      - PG_PORT=${PG_PORT:-5432}
+      - PG_USER=${PG_USER}
+      - PG_PASSWORD=${PG_PASSWORD}
+      - PG_DB=${PG_DB:-olist}
+      - PG_PROD_SCHEMA=${PG_PROD_SCHEMA:-olist_prod}
+      - PG_RAW_SCHEMA=${PG_RAW_SCHEMA:-olist_raw}
     working_dir: /usr/app/dbt
     entrypoint: ["dbt"]
     command: ["run", "--project-dir", ".", "--profiles-dir", "."]
 
-  metabase:
-    image: metabase/metabase:latest
-    ports:
-      - "3000:3000"
-    environment:
-      MB_DB_TYPE: h2
-    volumes:
-      - metabase-data:/metabase-data
-    restart: always
-
 volumes:
   postgres-data:
   airflow-logs:
-  metabase-data:
 

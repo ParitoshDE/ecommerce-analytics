@@ -301,7 +301,7 @@ ecommerce-analytics/
 │   └── terraform.tfvars.example
 ├── tests/
 │   └── test_transform.py               # pytest unit tests
-├── docker-compose.yml                   # Airflow + dbt + Metabase services
+├── docker-compose.yml                   # Airflow + dbt services
 ├── Makefile                             # make all / make download / make dbt-run etc.
 ├── requirements.txt
 └── .env.example
@@ -430,7 +430,7 @@ sslmode  = "require"
 - [x] `requirements.txt` declares all Python dependencies
 - [x] `make all` runs the complete pipeline end-to-end
 - [x] `dbt deps` + `dbt run` + `dbt test` all pass (27 tests, 0 errors)
-- [x] Docker Compose for Airflow + dbt + Metabase
+- [x] Docker Compose for Airflow + dbt (Streamlit Cloud for public dashboard)
 - [x] Dashboard deployable to Streamlit Cloud with secrets only
 - [x] `pytest tests/` validates Spark transform logic
 - [x] No local paths or personal credentials hardcoded anywhere
