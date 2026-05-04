@@ -1,5 +1,9 @@
 # E-Commerce Analytics
 
+> **Dataset: [Olist Brazilian E-Commerce](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)** — NOT NYC Taxi data.
+> This project uses a completely independent dataset: 100k real orders from Brazil's largest
+> e-commerce marketplace, covering September 2016 – October 2018.
+
 End-to-end batch data pipeline for the **Olist Brazilian E-Commerce** public dataset,
 built as the capstone project for the **Data Engineering Zoomcamp 2026**.
 
@@ -141,7 +145,7 @@ dbt_test
 | **Data Warehouse** | AWS RDS PostgreSQL 16 (db.t3.micro) | `PARTITION BY RANGE(order_purchase_date)` + btree indexes |
 | **Transformations** | dbt-postgres 1.8 | 10 models: staging → dimensions → facts → aggregations |
 | **Dashboard** | Streamlit + Plotly (Streamlit Cloud) | 6 interactive tiles, publicly deployed |
-| **Containerisation** | Docker + Docker Compose | Airflow + dbt + Metabase services |
+| **Containerisation** | Docker + Docker Compose | Airflow + dbt services |
 | **Testing** | dbt tests (27) + pytest | not_null, unique, expression checks |
 | **Language** | Python 3.11 | boto3, psycopg2-binary, pyarrow, pandas, pyspark |
 
