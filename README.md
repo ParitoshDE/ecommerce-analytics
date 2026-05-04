@@ -1,4 +1,4 @@
-# Olist Brazilian E-Commerce Analytics
+# E-Commerce Analytics
 
 End-to-end batch data pipeline for the **Olist Brazilian E-Commerce** public dataset,
 built as the capstone project for the **Data Engineering Zoomcamp 2026**.
