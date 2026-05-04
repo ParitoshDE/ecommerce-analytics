@@ -1,13 +1,14 @@
 """
 olist_pipeline_dag.py — Airflow DAG for the Olist E-Commerce Analytics pipeline.
 
-Workflow (6 tasks):
-    1. download_from_kaggle  — Download Olist CSVs from Kaggle API to local staging
-    2. upload_raw_to_gcs     — Push raw CSV files to GCS data lake (raw zone)
-    3. spark_transform       — PySpark: join all Olist CSVs → denormalized Parquet
-    4. load_to_bigquery      — Load Parquet from GCS into BigQuery (partitioned + clustered)
-    5. dbt_run               — Run dbt models: staging → dimensions → facts → aggregations
-    6. dbt_test              — Run dbt data quality tests
+Workflow (7 tasks):
+    1. download_from_kaggle     — Download Olist CSVs from Kaggle API to data/raw/
+    2. upload_raw_to_s3         — Push raw CSV files to S3 data lake (raw/ prefix)
+    3. spark_transform          — PySpark: join all Olist CSVs → denormalized Parquet in data/processed/
+    4. upload_processed_to_s3   — Push Parquet files to S3 data lake (processed/ prefix)
+    5. load_to_redshift         — COPY Parquet from S3 into Redshift (DISTKEY + SORTKEY)
+    6. dbt_run                  — Run dbt models: staging → dimensions → facts → aggregations
+    7. dbt_test                 — Run dbt data quality tests
 """
 from __future__ import annotations
 
@@ -15,19 +16,22 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.providers.google.cloud.operators.dataproc import DataprocCreateBatchOperator
 
-PROJECT_DIR = "/home/airflow/gcs/dags/ecommerce-analytics"
+PROJECT_DIR = "/opt/airflow/project"
 
 ENV_EXPORT = (
-    "export GCP_PROJECT_ID='{{ var.value.get(\"GCP_PROJECT_ID\", \"\") }}' && "
-    "export GCP_REGION='{{ var.value.get(\"GCP_REGION\", \"us-central1\") }}' && "
-    "export GCS_BUCKET='{{ var.value.get(\"GCS_BUCKET\", \"\") }}' && "
-    "export BQ_RAW_DATASET='{{ var.value.get(\"BQ_RAW_DATASET\", \"olist_raw\") }}' && "
-    "export BQ_PROD_DATASET='{{ var.value.get(\"BQ_PROD_DATASET\", \"olist_prod\") }}' && "
-    "export KAGGLE_API_TOKEN='{{ var.value.get(\"KAGGLE_API_TOKEN\", \"\") }}' && "
-    "export GOOGLE_APPLICATION_CREDENTIALS='{{ var.value.get(\"GOOGLE_APPLICATION_CREDENTIALS\", \"\") }}' && "
-    ""
+    'export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" && '
+    'export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" && '
+    'export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}" && '
+    'export S3_BUCKET="${S3_BUCKET}" && '
+    'export REDSHIFT_HOST="${REDSHIFT_HOST}" && '
+    'export REDSHIFT_USER="${REDSHIFT_USER}" && '
+    'export REDSHIFT_PASSWORD="${REDSHIFT_PASSWORD}" && '
+    'export REDSHIFT_DB="${REDSHIFT_DB:-olist}" && '
+    'export RS_RAW_SCHEMA="${RS_RAW_SCHEMA:-olist_raw}" && '
+    'export RS_PROD_SCHEMA="${RS_PROD_SCHEMA:-olist_prod}" && '
+    'export IAM_ROLE_ARN="${IAM_ROLE_ARN}" && '
+    'export KAGGLE_API_TOKEN="${KAGGLE_API_TOKEN}" && '
 )
 
 default_args = {
@@ -41,7 +45,7 @@ default_args = {
 with DAG(
     dag_id="olist_ecommerce_analytics_pipeline",
     default_args=default_args,
-    description="Batch pipeline: Kaggle Olist → GCS → Spark → BigQuery → dbt",
+    description="Batch pipeline: Kaggle Olist → S3 → Spark → Redshift → dbt",
     schedule_interval="@once",
     start_date=datetime(2024, 1, 1),
     catchup=False,
@@ -56,44 +60,36 @@ with DAG(
         ),
     )
 
-    upload_raw_to_gcs = BashOperator(
-        task_id="upload_raw_to_gcs",
+    upload_raw_to_s3 = BashOperator(
+        task_id="upload_raw_to_s3",
         bash_command=(
             f"{ENV_EXPORT} cd {PROJECT_DIR} && "
-            "python scripts/upload_to_gcs.py"
+            "python scripts/upload_to_s3.py"
         ),
     )
 
-    spark_transform = DataprocCreateBatchOperator(
+    spark_transform = BashOperator(
         task_id="spark_transform",
-        project_id="{{ var.value.get('GCP_PROJECT_ID', '') }}",
-        region="{{ var.value.get('GCP_REGION', 'us-central1') }}",
-        batch_id="olist-spark-{{ ts_nodash | lower }}",
-        batch={
-            "pyspark_batch": {
-                "main_python_file_uri": (
-                    "{{ var.value.get('COMPOSER_REPO_ROOT_GCS', '') }}"
-                    "/spark/transform_events.py"
-                ),
-                "args": [
-                    "--gcs-bucket",
-                    "{{ var.value.get('GCS_BUCKET', '') }}",
-                ],
-            },
-            "runtime_config": {"version": "2.2"},
-            "environment_config": {
-                "execution_config": {
-                    "service_account": "{{ var.value.get('PIPELINE_SERVICE_ACCOUNT', '') }}",
-                },
-            },
-        },
-    )
-
-    load_to_bigquery = BashOperator(
-        task_id="load_to_bigquery",
         bash_command=(
             f"{ENV_EXPORT} cd {PROJECT_DIR} && "
-            "python scripts/load_to_bigquery.py"
+            "python spark/transform_events.py"
+        ),
+        execution_timeout=timedelta(minutes=30),
+    )
+
+    upload_processed_to_s3 = BashOperator(
+        task_id="upload_processed_to_s3",
+        bash_command=(
+            f"{ENV_EXPORT} cd {PROJECT_DIR} && "
+            "python scripts/upload_processed_to_s3.py"
+        ),
+    )
+
+    load_to_redshift = BashOperator(
+        task_id="load_to_redshift",
+        bash_command=(
+            f"{ENV_EXPORT} cd {PROJECT_DIR} && "
+            "python scripts/load_to_redshift.py"
         ),
     )
 
@@ -116,9 +112,10 @@ with DAG(
 
     (
         download_from_kaggle
-        >> upload_raw_to_gcs
+        >> upload_raw_to_s3
         >> spark_transform
-        >> load_to_bigquery
+        >> upload_processed_to_s3
+        >> load_to_redshift
         >> dbt_run
         >> dbt_test
     )

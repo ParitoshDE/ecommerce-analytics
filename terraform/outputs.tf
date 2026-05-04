@@ -1,19 +1,19 @@
-output "data_lake_bucket" {
-  description = "GCS data lake bucket name"
-  value       = google_storage_bucket.data_lake.name
+output "s3_data_lake_bucket" {
+  description = "S3 data lake bucket name"
+  value       = aws_s3_bucket.data_lake.bucket
 }
 
-output "raw_dataset_id" {
-  description = "BigQuery raw dataset ID"
-  value       = google_bigquery_dataset.raw.dataset_id
+output "redshift_endpoint" {
+  description = "Redshift Serverless workgroup endpoint (use as REDSHIFT_HOST in .env)"
+  value       = aws_redshiftserverless_workgroup.olist.endpoint[0].address
 }
 
-output "prod_dataset_id" {
-  description = "BigQuery production dataset ID"
-  value       = google_bigquery_dataset.prod.dataset_id
+output "redshift_port" {
+  description = "Redshift Serverless port"
+  value       = 5439
 }
 
-output "pipeline_service_account_email" {
-  description = "Pipeline service account email"
-  value       = google_service_account.pipeline_sa.email
+output "redshift_iam_role_arn" {
+  description = "IAM role ARN for Redshift COPY from S3 (use as IAM_ROLE_ARN in .env)"
+  value       = aws_iam_role.redshift_s3_role.arn
 }

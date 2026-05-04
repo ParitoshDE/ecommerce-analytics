@@ -2,14 +2,13 @@ version: 2
 
 sources:
   - name: olist_raw
-    database: "{{ env_var('GCP_PROJECT_ID') }}"
-    schema: "{{ env_var('BQ_RAW_DATASET', 'olist_raw') }}"
+    database: "{{ env_var('REDSHIFT_DB', 'olist') }}"
+    schema: "{{ env_var('RS_RAW_SCHEMA', 'olist_raw') }}"
     tables:
       - name: orders_enriched
         description: >
           Denormalized Olist orders produced by PySpark. Grain: one row per order item.
-          Partitioned by order_purchase_date, clustered by customer_state and
-          product_category_name_english.
+          DISTKEY(customer_state), SORTKEY(order_purchase_date) for optimal query performance.
 
 models:
   - name: stg_orders

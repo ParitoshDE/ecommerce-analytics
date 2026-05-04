@@ -1,9 +1,9 @@
 """
 transform_events.py — PySpark batch transformation for Olist Brazilian E-Commerce.
 
-Reads raw Olist CSV files from GCS (or local data/raw/), joins all 8 tables
-into a single denormalized orders-enriched dataset, and writes partitioned
-Parquet for BigQuery load.
+Reads raw Olist CSV files from data/raw/, joins all 8 tables into a single
+denormalized orders-enriched dataset, and writes partitioned Parquet to
+data/processed/ for upload to S3 and loading into Redshift.
 
 Output schema (grain = one row per order item):
     order_id, order_item_id, order_status,
@@ -19,8 +19,6 @@ Output schema (grain = one row per order item):
 """
 from __future__ import annotations
 
-import argparse
-import os
 import shutil
 from pathlib import Path
 
@@ -32,42 +30,13 @@ from pyspark.sql import functions as F
 from pyspark.sql import Window
 
 
-def get_spark(enable_gcs: bool) -> SparkSession:
+def get_spark() -> SparkSession:
     builder = (
         SparkSession.builder
         .appName("olist-ecommerce-transform")
         .config("spark.sql.parquet.compression.codec", "snappy")
         .config("spark.sql.parquet.enableVectorizedReader", "false")
     )
-
-    if enable_gcs:
-        builder = (
-            builder
-            .config(
-                "spark.jars.packages",
-                "com.google.cloud.bigdataoss:gcs-connector:hadoop3-2.2.26",
-            )
-            .config(
-                "spark.hadoop.fs.gs.impl",
-                "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem",
-            )
-            .config(
-                "spark.hadoop.fs.AbstractFileSystem.gs.impl",
-                "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS",
-            )
-        )
-
-        credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        if credentials_path:
-            norm = credentials_path.replace("\\", "/")
-            builder = (
-                builder
-                .config("spark.hadoop.google.cloud.auth.service.account.enable", "true")
-                .config("spark.hadoop.google.cloud.auth.service.account.json.keyfile", norm)
-                .config("spark.hadoop.fs.gs.auth.service.account.enable", "true")
-                .config("spark.hadoop.fs.gs.auth.service.account.json.keyfile", norm)
-            )
-
     return builder.getOrCreate()
 
 
@@ -269,27 +238,14 @@ def transform(spark: SparkSession, raw_prefix: str, output_path: str) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Olist E-Commerce PySpark transform")
-    parser.add_argument("--gcs-bucket", default=None,
-                        help="GCS bucket name (without gs:// prefix)")
-    args = parser.parse_args()
-
-    gcs_bucket = args.gcs_bucket or os.getenv("GCS_BUCKET", "")
-
-    if gcs_bucket:
-        raw_prefix = f"gs://{gcs_bucket}/raw"
-        output_path = f"gs://{gcs_bucket}/processed/"
-        enable_gcs = True
-    else:
-        base = Path(__file__).resolve().parent.parent
-        raw_prefix = str(base / "data" / "raw")
-        output_path = str(base / "data" / "processed")
-        enable_gcs = False
+    base = Path(__file__).resolve().parent.parent
+    raw_prefix  = str(base / "data" / "raw")
+    output_path = str(base / "data" / "processed")
 
     print(f"[spark] Raw prefix : {raw_prefix}")
     print(f"[spark] Output path: {output_path}")
 
-    spark = get_spark(enable_gcs=enable_gcs)
+    spark = get_spark()
     transform(spark, raw_prefix, output_path)
     spark.stop()
 

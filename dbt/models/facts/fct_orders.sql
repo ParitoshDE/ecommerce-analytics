@@ -1,17 +1,12 @@
 -- fct_orders.sql
 -- Order item fact table — one row per order item with surrogate key.
--- Partitioned by order_purchase_date (day granularity) for time-range query efficiency.
--- Clustered by customer_state and product_category_name_english to eliminate full-table
--- scans when filtering by geography or product category — the two primary analytical axes.
+-- SORTKEY(order_purchase_date): efficient time-range queries (partition equivalent).
+-- DISTKEY(customer_state): eliminates cross-node shuffles when filtering by state.
 
 {{ config(
     materialized='table',
-    partition_by={
-        "field": "order_purchase_date",
-        "data_type": "date",
-        "granularity": "day"
-    },
-    cluster_by=["customer_state", "product_category_name_english"]
+    sort=['order_purchase_date'],
+    dist='customer_state'
 ) }}
 
 with orders as (

@@ -5,16 +5,17 @@
 
 select
     customer_state,
-    count(distinct order_id)                     as total_orders,
-    avg(delivery_days)                           as avg_delivery_days,
-    avg(estimated_delivery_days)                 as avg_estimated_delivery_days,
-    avg(delivery_days - estimated_delivery_days) as avg_delay_days,
-    countif(is_on_time = true)                   as on_time_deliveries,
-    safe_divide(
-        countif(is_on_time = true),
-        count(distinct order_id)
-    )                                            as on_time_rate,
-    avg(review_score)                            as avg_review_score
+    count(distinct order_id)                            as total_orders,
+    avg(delivery_days)                                  as avg_delivery_days,
+    avg(estimated_delivery_days)                        as avg_estimated_delivery_days,
+    avg(delivery_days - estimated_delivery_days)        as avg_delay_days,
+    SUM(CASE WHEN is_on_time THEN 1 ELSE 0 END)         as on_time_deliveries,
+    CASE
+        WHEN count(distinct order_id) = 0 THEN NULL
+        ELSE SUM(CASE WHEN is_on_time THEN 1 ELSE 0 END)::float
+             / count(distinct order_id)
+    END                                                 as on_time_rate,
+    avg(review_score)                                   as avg_review_score
 
 from {{ ref('fct_orders') }}
 where customer_state is not null

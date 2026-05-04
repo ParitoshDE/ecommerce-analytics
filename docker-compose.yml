@@ -1,19 +1,105 @@
 version: "3.9"
 
+x-airflow-common:
+  &airflow-common
+  build:
+    context: ./airflow
+    dockerfile: Dockerfile
+  environment:
+    &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__WEBSERVER__SECRET_KEY: 'olist-pipeline-secret'
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+    S3_BUCKET: ${S3_BUCKET}
+    REDSHIFT_HOST: ${REDSHIFT_HOST}
+    REDSHIFT_USER: ${REDSHIFT_USER}
+    REDSHIFT_PASSWORD: ${REDSHIFT_PASSWORD}
+    REDSHIFT_DB: ${REDSHIFT_DB:-olist}
+    RS_RAW_SCHEMA: ${RS_RAW_SCHEMA:-olist_raw}
+    RS_PROD_SCHEMA: ${RS_PROD_SCHEMA:-olist_prod}
+    IAM_ROLE_ARN: ${IAM_ROLE_ARN}
+    KAGGLE_API_TOKEN: ${KAGGLE_API_TOKEN}
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./scripts:/opt/airflow/project/scripts
+    - ./spark:/opt/airflow/project/spark
+    - ./dbt:/opt/airflow/project/dbt
+    - ./data:/opt/airflow/project/data
+    - airflow-logs:/opt/airflow/logs
+  depends_on:
+    postgres:
+      condition: service_healthy
+
 services:
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  airflow-init:
+    <<: *airflow-common
+    command: >
+      bash -c "
+        airflow db upgrade &&
+        airflow users create
+          --username admin
+          --password admin
+          --firstname Admin
+          --lastname User
+          --role Admin
+          --email admin@example.com
+      "
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+
   dbt:
     build:
       context: ./dbt
       dockerfile: Dockerfile
     volumes:
       - ./dbt:/usr/app/dbt
-      - ./keys:/usr/app/keys:ro
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/usr/app/keys/gcp-service-account.json
-      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
-      - BQ_RAW_DATASET=${BQ_RAW_DATASET:-olist_raw}
-      - BQ_PROD_DATASET=${BQ_PROD_DATASET:-olist_prod}
-      - GCP_REGION=${GCP_REGION:-us-central1}
+      - REDSHIFT_HOST=${REDSHIFT_HOST}
+      - REDSHIFT_USER=${REDSHIFT_USER}
+      - REDSHIFT_PASSWORD=${REDSHIFT_PASSWORD}
+      - REDSHIFT_DB=${REDSHIFT_DB:-olist}
+      - RS_PROD_SCHEMA=${RS_PROD_SCHEMA:-olist_prod}
+      - RS_RAW_SCHEMA=${RS_RAW_SCHEMA:-olist_raw}
     working_dir: /usr/app/dbt
     entrypoint: ["dbt"]
     command: ["run", "--project-dir", ".", "--profiles-dir", "."]
+
+volumes:
+  postgres-data:
+  airflow-logs:
+
