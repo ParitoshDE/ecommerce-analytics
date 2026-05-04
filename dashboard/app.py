@@ -22,7 +22,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🛒 Olist Brazilian E-Commerce Analytics")
+st.title("🛒 E-Commerce Analytics")
 st.caption("Data: Sep 2016 – Oct 2018 · ~100k orders · Source: Kaggle olistbr/brazilian-ecommerce")
 
 # ---------------------------------------------------------------------------
