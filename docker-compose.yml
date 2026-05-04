@@ -99,7 +99,18 @@ services:
     entrypoint: ["dbt"]
     command: ["run", "--project-dir", ".", "--profiles-dir", "."]
 
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: h2
+    volumes:
+      - metabase-data:/metabase-data
+    restart: always
+
 volumes:
   postgres-data:
   airflow-logs:
+  metabase-data:
 

@@ -4,8 +4,9 @@ models:
   - name: fct_orders
     description: >
       Order item fact table — one row per order item with surrogate key.
-      Partitioned by order_purchase_date, clustered by customer_state and
-      product_category_name_english for optimal analytical query performance.
+      SORTKEY(order_purchase_date) enables zone map pruning for time-range queries.
+      DISTKEY(customer_state) eliminates cross-node data movement on geographic filters —
+      the Redshift equivalents of BigQuery partitioning and clustering.
     tests:
       - dbt_utils.expression_is_true:
           arguments:
