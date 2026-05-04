@@ -3,7 +3,7 @@
 End-to-end batch data pipeline for the **Olist Brazilian E-Commerce** public dataset,
 built as the capstone project for the **Data Engineering Zoomcamp 2026**.
 
-> **Live Dashboard →** _(paste your Streamlit Cloud URL here after deployment)_
+> **Live Dashboard →** https://ecommerce-analytics-t2ocvbvwgbkufrv2i4t9rz.streamlit.app/
 
 ---
 
@@ -205,7 +205,7 @@ and category dimensions.
 
 ## Dashboard — 6 Tiles
 
-**Live URL:** _(paste Streamlit Cloud URL)_
+**Live URL:** https://ecommerce-analytics-t2ocvbvwgbkufrv2i4t9rz.streamlit.app/
 
 | Tile | Chart | Source Table | Business Question |
 |---|---|---|---|
