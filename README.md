@@ -365,8 +365,10 @@ PG_PROD_SCHEMA=olist_prod
 
 ```bash
 pip install -r requirements.txt
-pip install dbt-postgres>=1.8.0
+pip install "dbt-postgres>=1.8.0,<1.9.0"   # local dbt install (no Docker needed)
 ```
+
+> **Alternative:** run dbt via Docker: `docker compose run --rm dbt dbt run`
 
 ### 4. Run the full pipeline
 
