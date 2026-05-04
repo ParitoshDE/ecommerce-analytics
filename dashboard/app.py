@@ -63,9 +63,9 @@ def load_monthly_orders():
         SELECT year_month,
                total_orders,
                total_revenue,
-               avg_order_value,
+               avg_order_item_value,
                on_time_deliveries,
-               late_deliveries
+               on_time_rate
         FROM olist_prod.agg_monthly_orders
         ORDER BY year_month
         """,
@@ -135,7 +135,7 @@ try:
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Orders", f"{monthly['total_orders'].sum():,}")
     col2.metric("Total Revenue", f"R$ {monthly['total_revenue'].sum():,.0f}")
-    col3.metric("Avg Order Value", f"R$ {monthly['avg_order_value'].mean():.2f}")
+    col3.metric("Avg Item Value", f"R$ {monthly['avg_order_item_value'].mean():.2f}")
 
 except Exception as e:
     st.error(f"Could not load monthly data: {e}")
