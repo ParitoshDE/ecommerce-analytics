@@ -1,0 +1,29 @@
+version: 2
+
+sources:
+  - name: olist_raw
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: "{{ env_var('BQ_RAW_DATASET', 'olist_raw') }}"
+    tables:
+      - name: orders_enriched
+        description: >
+          Denormalized Olist orders produced by PySpark. Grain: one row per order item.
+          Partitioned by order_purchase_date, clustered by customer_state and
+          product_category_name_english.
+
+models:
+  - name: stg_orders
+    description: "Cleaned and typed Olist orders from the raw layer (one row per order item)"
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+      - name: order_purchase_date
+        tests:
+          - not_null
+      - name: customer_state
+        tests:
+          - not_null
+      - name: total_item_value
+        tests:
+          - not_null
