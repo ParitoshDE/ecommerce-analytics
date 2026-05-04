@@ -1,9 +1,5 @@
 # E-Commerce Analytics
 
-> **Dataset: [Olist Brazilian E-Commerce](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)** — NOT NYC Taxi data.
-> This project uses a completely independent dataset: 100k real orders from Brazil's largest
-> e-commerce marketplace, covering September 2016 – October 2018.
-
 End-to-end batch data pipeline for the **Olist Brazilian E-Commerce** public dataset,
 built as the capstone project for the **Data Engineering Zoomcamp 2026**.
 
